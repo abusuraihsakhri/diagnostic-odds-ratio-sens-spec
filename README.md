@@ -1,7 +1,7 @@
 # Diagnostic Odds Ratio Sens Spec
 
-> **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+> **Domain:** Clinical Decision Support & Biomedical Computing
+> **Reference Guidelines & Standards:** Standard Clinical Formulations & ISO/IEC Quality Frameworks
 
 <div align="center">
 
@@ -18,20 +18,16 @@
 
 ## 📖 What It Does
 
-Enrichment Features for Diagnostic Odds Ratio & Youden Index Engine
-====================================================================
+Diagnostic Odds Ratio (DOR) & Youden Index Engine with enrichment features for clinical decision support.
 
-1. Fagan's LR Integration - Positive/Negative Likelihood Ratios with post-test probability
-2. Confidence Intervals for All Metrics - Wilson-score and Clopper-Pearson CIs
-3. ROC Curve with Optimal Threshold - Full ROC sweep, AUC, multiple cutpoint methods
+### Core Features
 
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+1. **DOR & Youden Index Calculation** - Sensitivity, Specificity, PPV, NPV, DOR, and Youden's J from a 2x2 table
+2. **Fagan's LR Integration** - Positive/Negative Likelihood Ratios with post-test probability
+3. **Confidence Intervals** - Wilson-score and Clopper-Pearson CIs for all metrics
+4. **ROC Curve Analysis** - Full ROC sweep, AUC, multiple cutpoint methods
+5. **Cost-Sensitive Threshold** - Find optimal threshold minimizing expected cost
 
-Diagnostic Odds Ratio (DOR) & Youden Index Engine
-Calculates Sensitivity, Specificity, Positive/Negative Predictive Value, Diagnostic Odds Ratio (DOR), and Youden's J.
-
-Zero-dependency Python implementation with single and batch evaluation.
 Author: Dr. Abu Suraih Sakhri
 License: MIT
 
@@ -41,117 +37,80 @@ License: MIT
 
 ### 🔬 Analytical Functions
 
-- **`compute_likelihood_ratios()`**: Compute Positive Likelihood Ratio (LR+) and Negative Likelihood Ratio (LR-).
-
-Parameters
-----------
-sensitivity : float  (0-1)
-specificity : float  (0-1)
-
-Returns
--------
-dict with lr_positive, lr_negative, and interpretation strings.
-- **`fagan_nomogram()`**: Compute post-test probabilities using Fagan's nomogram.
-
-Parameters
-----------
-pretest_probability : float  (0-1)
-lr_positive : float, optional
-lr_negative : float, optional
-sensitivity, specificity : float, optional (used to compute LR if not given)
-
-Returns
--------
-dict with post_test_positive, post_test_negative, pretest_odds, etc.
-- **`compute_all_metrics_with_ci()`**: Compute sensitivity, specificity, PPV, NPV, DOR, Youden's J with CIs.
-
-Parameters
-----------
-tp, fp, fn, tn : int  (confusion matrix cells)
-alpha : significance level (default 0.05 for 95% CI)
-ci_method : "wilson" or "clopper-pearson"
-
-Returns
--------
-dict with all metrics and their confidence intervals.
-- **`compute_roc_curve()`**: Compute full ROC curve by sweeping all thresholds.
-
-Parameters
-----------
-scores : list of numeric test scores
-labels : list of binary labels (matching positive_label for positives)
-positive_label : which label value indicates positive class
-
-Returns
--------
-dict with thresholds, fpr, tpr, auc, and multiple optimal cutpoints.
-- **`compute_cost_sensitive_cutpoint()`**: Find the threshold minimizing expected cost: cost_fn*FN + cost_fp*FP.
-
-Parameters
-----------
-scores, labels : data
-cost_fp : cost of a false positive
-cost_fn : cost of a false negative
-positive_label : which label is positive
-
-Returns
--------
-dict with optimal threshold and associated metrics.
+- **`calculate_metrics()`** - Core scoring algorithm with classification tiers
+- **`compute_likelihood_ratios()`** - Compute LR+ and LR- with interpretations
+- **`fagan_nomogram()`** - Compute post-test probabilities using Fagan's nomogram
+- **`compute_all_metrics_with_ci()`** - Full metrics with confidence intervals
+- **`compute_roc_curve()`** - ROC curve with optimal cutpoints
+- **`compute_cost_sensitive_cutpoint()`** - Cost-minimizing threshold
 
 ---
 
-## 📐 Mathematical Formulation & Logic
+## 💻 Installation
 
-```text
-  return (0.0, 0.0)
-  return (round(lower, 6), round(upper, 6))
-  return (round(lower, 4), round(upper, 4))
-  score = primary_val
-  rounded_score = round(score, 2)
+```bash
+# Clone the repository
+git clone https://github.com/abusuraihsakhri/diagnostic-odds-ratio-sens-spec.git
+cd diagnostic-odds-ratio-sens-spec
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
 ---
 
-## 💻 CLI Quickstart & Usage
+## 🚀 CLI Quickstart & Usage
 
-### 1. Guided Interactive Mode
+### 1. Single Case Evaluation
 ```bash
-python cli.py
+python dor_youden.py single --v1 12.0 --v2 4.0 --v3 2.0
 ```
 
-### 2. Direct Parameterized Evaluation
+### 2. Batch CSV Processing
 ```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
+python dor_youden.py batch -i sample.csv -o results.csv
 ```
 
-### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
+### 3. Interactive CLI with Full System
+```bash
+python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
+```
 
-### Input Data Schema
+### 4. Batch Processing via CLI
+```bash
+python cli.py batch -i sample.csv -o results.csv
+```
 
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
+### 5. Launch REST API Server
+```bash
+python cli.py serve --host 127.0.0.1 --port 8000
+```
+
+### 6. Verify Audit Trail
+```bash
+python cli.py verify-audit
+```
 
 ---
 
 ## 🛡️ Security & Enterprise Architecture
 
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
+* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
+* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation
+* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances, Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks
+* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`)
+
+### Security Configuration
+
+Set the `AUDIT_SECRET_KEY` environment variable for persistent audit integrity across restarts:
+
+```bash
+export AUDIT_SECRET_KEY="your-secure-random-key"
+```
 
 ---
 
@@ -176,4 +135,60 @@ python simulator.py --tasks 1000 --concurrency 8
 ```bash
 docker build -t diagnostic-odds-ratio-sens-spec .
 docker run -p 8000:8000 diagnostic-odds-ratio-sens-spec
+```
+
+---
+
+## 📁 Project Structure
+
+```
+diagnostic-odds-ratio-sens-spec/
+├── agents/                 # Enterprise agent framework
+│   ├── api.py             # FastAPI REST server
+│   ├── base.py            # Security, PHI guard, audit trail
+│   ├── models.py          # Pydantic data models
+│   ├── supervisor.py      # Multi-agent orchestrator
+│   ├── workers.py         # Specialized domain workers
+│   ├── llm_factory.py     # LLM provider factory
+│   ├── learning.py        # Bayesian calibration engine
+│   ├── metrics.py         # Prometheus metrics exporter
+│   └── streamer.py        # WebSocket telemetry broadcaster
+├── tests/                 # Test suite
+├── web/                   # Operations console (HTML)
+├── cli.py                 # Command line interface
+├── dor_youden.py          # Core DOR & Youden calculations
+├── dor_enrichment.py      # Enrichment features (LR, CI, ROC)
+├── enrichment.py          # Additional enrichment engines
+├── simulator.py           # High-throughput simulation
+├── sample.csv             # Sample input data
+├── requirements.txt       # Python dependencies
+├── Dockerfile             # Container configuration
+└── docker-compose.yml     # Multi-container orchestration
+```
+
+---
+
+## 📐 Mathematical Formulation
+
+### Diagnostic Odds Ratio (DOR)
+```
+DOR = (TP × TN) / (FP × FN)
+```
+
+### Youden's J
+```
+J = Sensitivity + Specificity - 1
+```
+
+### Likelihood Ratios
+```
+LR+ = Sensitivity / (1 - Specificity)
+LR- = (1 - Sensitivity) / Specificity
+```
+
+### Fagan's Nomogram (Post-Test Probability)
+```
+Pre-test Odds = Pre-test Probability / (1 - Pre-test Probability)
+Post-test Odds = Pre-test Odds × LR
+Post-test Probability = Post-test Odds / (1 + Post-test Odds)
 ```

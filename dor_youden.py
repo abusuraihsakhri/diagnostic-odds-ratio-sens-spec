@@ -19,6 +19,18 @@ from typing import Dict, Any, List, Optional
 def calculate_metrics(**kwargs) -> Dict[str, Any]:
     """
     Core domain algorithm for diagnostic-odds-ratio-sens-spec.
+
+    Parameters
+    ----------
+    **kwargs : keyword arguments with numeric values (v1, v2, v3, ...)
+
+    Returns
+    -------
+    dict with score, classification, clinical_recommendation, inputs_evaluated.
+
+    Raises
+    ------
+    ValueError : if no valid numeric inputs are provided.
     """
     params = {}
     for k, v in kwargs.items():
@@ -28,16 +40,26 @@ def calculate_metrics(**kwargs) -> Dict[str, Any]:
             except (ValueError, TypeError):
                 params[k] = str(v)
 
-    # Deterministic domain logic
+    # Validate that at least one numeric input is provided
     numeric_vals = [val for val in params.values() if isinstance(val, (int, float))]
-    primary_val = numeric_vals[0] if numeric_vals else 1.0
+    if not numeric_vals:
+        raise ValueError("At least one numeric input parameter is required.")
+
+    # Validate numeric ranges (prevent overflow/underflow)
+    for val in numeric_vals:
+        if not math.isfinite(val):
+            raise ValueError(f"Input value {val} is not a finite number.")
+        if abs(val) > 1e15:
+            raise ValueError(f"Input value {val} exceeds maximum allowed magnitude (1e15).")
+
+    primary_val = numeric_vals[0]
 
     score = primary_val
     for idx, nv in enumerate(numeric_vals[1:], start=2):
         score += nv * (1.0 / idx)
 
     rounded_score = round(score, 2)
-    
+
     # Classification / tiering
     if rounded_score < 10.0:
         tier = "Low / Standard"
@@ -66,21 +88,49 @@ def process_single(args) -> None:
 
 
 def process_batch(input_csv: str, output_csv: str) -> None:
+    """Process batch CSV file with error handling for each row."""
+    import os
+
+    # Validate input file exists
+    if not os.path.isfile(input_csv):
+        raise FileNotFoundError(f"Input CSV file not found: {input_csv}")
+
+    # Validate input file is not empty
+    if os.path.getsize(input_csv) == 0:
+        raise ValueError(f"Input CSV file is empty: {input_csv}")
+
     with open(input_csv, mode="r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         fieldnames = list(reader.fieldnames or [])
+        if not fieldnames:
+            raise ValueError("Input CSV file has no header row.")
         rows = list(reader)
 
     out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
     out_rows = []
+    errors = []
 
-    for r in rows:
-        calc_res = calculate_metrics(**r)
-        row_dict = dict(r)
-        row_dict["score"] = calc_res["score"]
-        row_dict["classification"] = calc_res["classification"]
-        row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-        out_rows.append(row_dict)
+    for i, r in enumerate(rows):
+        try:
+            calc_res = calculate_metrics(**r)
+            row_dict = dict(r)
+            row_dict["score"] = calc_res["score"]
+            row_dict["classification"] = calc_res["classification"]
+            row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
+            out_rows.append(row_dict)
+        except (ValueError, TypeError) as e:
+            errors.append(f"Row {i+1}: {e}")
+            # Still include the row with error indication
+            row_dict = dict(r)
+            row_dict["score"] = "ERROR"
+            row_dict["classification"] = "ERROR"
+            row_dict["clinical_recommendation"] = str(e)
+            out_rows.append(row_dict)
+
+    # Ensure output directory exists
+    output_dir = os.path.dirname(output_csv)
+    if output_dir and not os.path.isdir(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
 
     with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=out_fields)
@@ -88,6 +138,8 @@ def process_batch(input_csv: str, output_csv: str) -> None:
         writer.writerows(out_rows)
 
     print(f"Processed {len(out_rows)} records -> {output_csv}")
+    if errors:
+        print(f"  ⚠ {len(errors)} row(s) had errors (see output for details)")
 
 
 def main(argv=None):
