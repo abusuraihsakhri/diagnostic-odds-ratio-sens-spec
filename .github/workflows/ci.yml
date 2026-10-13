@@ -30,6 +30,11 @@ jobs:
         run: python -m compileall -q agents cli.py dor_youden.py dor_enrichment.py enrichment.py simulator.py
       - name: Run tests
         run: python -m pytest -q
+      - name: Validate browser application
+        run: |
+          node --check web/metrics.js
+          node --check web/app.js
+          node --test web/tests.test.cjs
       - name: Verify audit security
         run: |
           python - <<'PY'
