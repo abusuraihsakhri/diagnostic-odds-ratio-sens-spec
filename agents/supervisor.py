@@ -25,6 +25,9 @@ class SystemSupervisor:
         PHIGuard.assert_no_phi(payload.task_id)
         PHIGuard.assert_no_phi(payload.target_identifier)
         PHIGuard.assert_no_phi(payload.status_descriptor)
+        # Metadata is also copied into user-controlled requests and may contain PHI.
+        import json
+        PHIGuard.assert_no_phi(json.dumps(payload.attributes))
 
         # Multi-worker evaluations
         all_alerts: List[AgentAlert] = []

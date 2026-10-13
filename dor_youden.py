@@ -16,9 +16,23 @@ import sys
 from typing import Dict, Any, List, Optional
 
 
+def calculate_diagnostic_metrics(tp: int, fp: int, fn: int, tn: int, alpha: float = 0.05) -> Dict[str, Any]:
+    """Calculate real diagnostic 2x2 metrics and confidence intervals.
+
+    Rows are reference disease status; columns are index-test result.
+    Returns proportions on the 0–1 scale. For zero cells, DOR uses a
+    Haldane–Anscombe correction (0.5 added to all four cells).
+    """
+    from dor_enrichment import compute_all_metrics_with_ci
+    return compute_all_metrics_with_ci(tp, fp, fn, tn, alpha=alpha)
+
+
 def calculate_metrics(**kwargs) -> Dict[str, Any]:
     """
-    Core domain algorithm for diagnostic-odds-ratio-sens-spec.
+    Legacy generic weighted-score routine, NOT a diagnostic performance metric.
+
+    For sensitivity, specificity, predictive values and DOR, call
+    calculate_diagnostic_metrics(tp=..., fp=..., fn=..., tn=...).
 
     Parameters
     ----------
@@ -88,7 +102,7 @@ def process_single(args) -> None:
 
 
 def process_batch(input_csv: str, output_csv: str) -> None:
-    """Process batch CSV file with error handling for each row."""
+    """Process TP/FP/FN/TN diagnostic tables or legacy weighted-score rows."""
     import os
 
     # Validate input file exists
@@ -106,26 +120,35 @@ def process_batch(input_csv: str, output_csv: str) -> None:
             raise ValueError("Input CSV file has no header row.")
         rows = list(reader)
 
-    out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
-    out_rows = []
-    errors = []
+    diagnostic_table = {"tp", "fp", "fn", "tn"}.issubset(fieldnames)
+    metric_fields = (
+        ["sensitivity", "specificity", "ppv", "npv", "lr_positive",
+         "lr_negative", "diagnostic_odds_ratio", "youden_j", "prevalence",
+         "dor_zero_cell_correction"]
+        if diagnostic_table else ["score", "classification", "clinical_recommendation"]
+    )
+    out_fields = fieldnames + [name for name in metric_fields if name not in fieldnames] + ["error"]
+    out_rows, errors = [], []
 
     for i, r in enumerate(rows):
+        row_dict = dict(r)
         try:
-            calc_res = calculate_metrics(**r)
-            row_dict = dict(r)
-            row_dict["score"] = calc_res["score"]
-            row_dict["classification"] = calc_res["classification"]
-            row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-            out_rows.append(row_dict)
-        except (ValueError, TypeError) as e:
+            if diagnostic_table:
+                counts = {name: int(r[name]) for name in ("tp", "fp", "fn", "tn")}
+                if any(str(r[name]).strip() != str(counts[name]) for name in counts):
+                    raise ValueError("Counts must be non-negative whole numbers.")
+                calc_res = calculate_diagnostic_metrics(**counts)
+            else:
+                calc_res = calculate_metrics(**r)
+            for name in metric_fields:
+                row_dict[name] = calc_res[name]
+            row_dict["error"] = ""
+        except (ValueError, TypeError, KeyError, OverflowError) as e:
             errors.append(f"Row {i+1}: {e}")
-            # Still include the row with error indication
-            row_dict = dict(r)
-            row_dict["score"] = "ERROR"
-            row_dict["classification"] = "ERROR"
-            row_dict["clinical_recommendation"] = str(e)
-            out_rows.append(row_dict)
+            for name in metric_fields:
+                row_dict[name] = ""
+            row_dict["error"] = str(e)
+        out_rows.append(row_dict)
 
     # Ensure output directory exists
     output_dir = os.path.dirname(output_csv)
@@ -153,6 +176,13 @@ def main(argv=None):
     single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
     single_parser.set_defaults(func=process_single)
 
+    # Diagnostic 2x2 table; keep legacy single mode for backward compatibility.
+    table_parser = subparsers.add_parser("table", help="Compute true diagnostic 2x2 statistics")
+    for cell in ("tp", "fp", "fn", "tn"):
+        table_parser.add_argument(f"--{cell}", type=int, required=True)
+    table_parser.add_argument("--alpha", type=float, default=0.05,
+                              help="Confidence interval significance level (default 0.05)")
+
     # Batch parser
     batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
     batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
@@ -162,6 +192,10 @@ def main(argv=None):
 
     if args.command == "single":
         args.func(args)
+    elif args.command == "table":
+        print(json.dumps(calculate_diagnostic_metrics(
+            args.tp, args.fp, args.fn, args.tn, alpha=args.alpha
+        ), indent=2, allow_nan=False))
     elif args.command == "batch":
         process_batch(args.input, args.output)
 

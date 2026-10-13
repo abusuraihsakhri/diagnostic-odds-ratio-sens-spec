@@ -1,6 +1,7 @@
 """
 Distributed Component High-Throughput Traffic & Stress Testing Simulator for Diagnostic Odds Ratio Sens Spec.
 """
+import argparse
 import time
 import random
 import sys
@@ -9,6 +10,8 @@ from agents.supervisor import SystemSupervisor
 from agents.base import PHIGuard, SecurityException, AuditLogger
 
 def run_simulation(iterations: int = 100):
+    if iterations < 1:
+        raise ValueError("tasks must be a positive integer")
     print(f"Starting Distributed Component Simulation on Diagnostic Odds Ratio Sens Spec ({iterations} tasks)...")
     supervisor = SystemSupervisor(model_provider="mock")
     start_time = time.time()
@@ -57,11 +60,16 @@ def run_simulation(iterations: int = 100):
     print(f"  Routine Outcomes:          {nominal_count} ({nominal_count/iterations*100:.1f}%)")
     print(f"  Elevated Risk Outcomes:    {elevated_count} ({elevated_count/iterations*100:.1f}%)")
     print(f"  Critical Interventions:    {critical_count} ({critical_count/iterations*100:.1f}%)")
-    print(f"  Adversarial PHI Intercepts:{phi_blocked_count} (100% Interception Rate)")
+    print(f"  Adversarial PHI Intercepts:{phi_blocked_count} (of {iterations // 25} synthetic checks)")
     print(f"  HMAC Audit Ledger Blocks:  {len(AuditLogger.get_trail())}")
     print(f"  HMAC Cryptographic Check:  {AuditLogger.verify_integrity()}")
     print("=" * 70)
 
 if __name__ == "__main__":
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-    run_simulation(n)
+    parser = argparse.ArgumentParser(description="Sequential synthetic task simulation")
+    parser.add_argument("legacy_tasks", type=int, nargs="?", help="Optional legacy task count")
+    parser.add_argument("--tasks", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    random.seed(args.seed)
+    run_simulation(args.tasks if args.tasks is not None else (args.legacy_tasks or 100))
