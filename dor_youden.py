@@ -16,9 +16,23 @@ import sys
 from typing import Dict, Any, List, Optional
 
 
+def calculate_diagnostic_metrics(tp: int, fp: int, fn: int, tn: int, alpha: float = 0.05) -> Dict[str, Any]:
+    """Calculate real diagnostic 2x2 metrics and confidence intervals.
+
+    Rows are reference disease status; columns are index-test result.
+    Returns proportions on the 0–1 scale. For zero cells, DOR uses a
+    Haldane–Anscombe correction (0.5 added to all four cells).
+    """
+    from dor_enrichment import compute_all_metrics_with_ci
+    return compute_all_metrics_with_ci(tp, fp, fn, tn, alpha=alpha)
+
+
 def calculate_metrics(**kwargs) -> Dict[str, Any]:
     """
-    Core domain algorithm for diagnostic-odds-ratio-sens-spec.
+    Legacy generic weighted-score routine, NOT a diagnostic performance metric.
+
+    For sensitivity, specificity, predictive values and DOR, call
+    calculate_diagnostic_metrics(tp=..., fp=..., fn=..., tn=...).
 
     Parameters
     ----------
@@ -153,6 +167,13 @@ def main(argv=None):
     single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
     single_parser.set_defaults(func=process_single)
 
+    # Diagnostic 2x2 table; keep legacy single mode for backward compatibility.
+    table_parser = subparsers.add_parser("table", help="Compute true diagnostic 2x2 statistics")
+    for cell in ("tp", "fp", "fn", "tn"):
+        table_parser.add_argument(f"--{cell}", type=int, required=True)
+    table_parser.add_argument("--alpha", type=float, default=0.05,
+                              help="Confidence interval significance level (default 0.05)")
+
     # Batch parser
     batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
     batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
@@ -162,6 +183,10 @@ def main(argv=None):
 
     if args.command == "single":
         args.func(args)
+    elif args.command == "table":
+        print(json.dumps(calculate_diagnostic_metrics(
+            args.tp, args.fp, args.fn, args.tn, alpha=args.alpha
+        ), indent=2, allow_nan=False))
     elif args.command == "batch":
         process_batch(args.input, args.output)
 

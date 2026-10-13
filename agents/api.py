@@ -3,6 +3,11 @@ FastAPI REST API Server for Diagnostic Odds Ratio Sens Spec.
 """
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from pathlib import Path
+from pydantic import Field
+from dor_youden import calculate_diagnostic_metrics
+from .base import SecurityException
 from pydantic import BaseModel
 from .base import AuditLogger, PHIGuard
 from .models import SystemTaskPayload, ConsensusDossier
@@ -21,6 +26,27 @@ class ChatRequest(BaseModel):
     query: str
 
 
+class DiagnosticTableRequest(BaseModel):
+    tp: int = Field(..., ge=0)
+    fp: int = Field(..., ge=0)
+    fn: int = Field(..., ge=0)
+    tn: int = Field(..., ge=0)
+    alpha: float = Field(default=0.05, gt=0, lt=1, allow_inf_nan=False)
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(Path(__file__).resolve().parent.parent / "web" / "index.html")
+
+
+@app.post("/api/diagnostic-metrics")
+def api_diagnostic_metrics(table: DiagnosticTableRequest):
+    try:
+        return calculate_diagnostic_metrics(**table.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.get("/health")
 def health():
     return {"status": "HEALTHY", "service": "diagnostic-odds-ratio-sens-spec", "domain": "Clinical & Biomedical AI", "standard": "CAP / CLSI / ISO Standards", "version": "3.0.0-ENTERPRISE"}
@@ -37,8 +63,11 @@ def metrics():
 
 @app.post("/api/audit")
 def api_audit(payload: SystemTaskPayload):
-    dossier = supervisor.process_task(payload)
-    return dossier.to_dict()
+    try:
+        dossier = supervisor.process_task(payload)
+        return dossier.to_dict()
+    except SecurityException as exc:
+        raise HTTPException(status_code=422, detail="Input contains a potentially identifying value.") from exc
 
 
 @app.post("/api/chat")

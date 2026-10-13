@@ -9,3 +9,6 @@ scipy>=1.10.0
 
 # Testing
 pytest>=7.0.0
+
+# FastAPI synchronous endpoint testing
+httpx>=0.27.0

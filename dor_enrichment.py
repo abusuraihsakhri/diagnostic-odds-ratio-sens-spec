@@ -220,21 +220,30 @@ def compute_all_metrics_with_ci(
     -------
     dict with all metrics and their confidence intervals.
     """
+    cells = {"tp": tp, "fp": fp, "fn": fn, "tn": tn}
+    if any(type(v) is not int or v < 0 for v in cells.values()):
+        raise ValueError("2x2 counts must be non-negative integers (not booleans).")
+    if not (math.isfinite(alpha) and 0 < alpha < 1):
+        raise ValueError("alpha must be a finite number strictly between 0 and 1.")
+    if ci_method not in {"wilson", "clopper-pearson"}:
+        raise ValueError("ci_method must be 'wilson' or 'clopper-pearson'.")
     n_pos = tp + fn
     n_neg = fp + tn
     total = tp + fp + fn + tn
+    if n_pos == 0 or n_neg == 0:
+        raise ValueError("Both reference-positive and reference-negative groups are required.")
 
     sens = tp / n_pos if n_pos > 0 else 0.0
     spec = tn / n_neg if n_neg > 0 else 0.0
-    ppv = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    npv = tn / (tn + fn) if (tn + fn) > 0 else 0.0
+    ppv = tp / (tp + fp) if (tp + fp) > 0 else None
+    npv = tn / (tn + fn) if (tn + fn) > 0 else None
 
     ci_fn = _wilson_ci if ci_method == "wilson" else _clopper_pearson_ci
 
     sens_ci = ci_fn(tp, n_pos, alpha)
     spec_ci = ci_fn(tn, n_neg, alpha)
-    ppv_ci = ci_fn(tp, tp + fp, alpha)
-    npv_ci = ci_fn(tn, tn + fn, alpha)
+    ppv_ci = ci_fn(tp, tp + fp, alpha) if tp + fp else None
+    npv_ci = ci_fn(tn, tn + fn, alpha) if tn + fn else None
 
     # DOR
     if min(tp, fp, fn, tn) > 0:
@@ -266,6 +275,7 @@ def compute_all_metrics_with_ci(
         "npv": round(npv, 6),
         f"npv_{ci_pct}ci": npv_ci,
         "diagnostic_odds_ratio": round(dor, 4),
+        "dor_zero_cell_correction": min(tp, fp, fn, tn) == 0,
         f"dor_{ci_pct}ci": dor_ci,
         "youden_j": round(youden_j, 6),
         f"youden_j_{ci_pct}ci": (round(youden_ci[0], 6), round(youden_ci[1], 6)),
@@ -300,6 +310,10 @@ def compute_roc_curve(
 
     scores = np.asarray(scores, dtype=float)
     labels = np.asarray(labels)
+    if scores.ndim != 1 or labels.ndim != 1 or not len(scores) or len(scores) != len(labels):
+        raise ValueError("scores and labels must be equal-length nonempty 1D arrays.")
+    if not np.all(np.isfinite(scores)):
+        raise ValueError("ROC scores must be finite numbers.")
     pos_mask = labels == positive_label
     neg_mask = ~pos_mask
     n_pos = pos_mask.sum()
@@ -401,10 +415,18 @@ def compute_cost_sensitive_cutpoint(
 
     scores = np.asarray(scores, dtype=float)
     labels = np.asarray(labels)
+    if scores.ndim != 1 or labels.ndim != 1 or not len(scores) or len(scores) != len(labels):
+        raise ValueError("scores and labels must be equal-length nonempty 1D arrays.")
+    if not np.all(np.isfinite(scores)):
+        raise ValueError("Threshold scores must be finite numbers.")
+    if not (math.isfinite(cost_fp) and math.isfinite(cost_fn) and cost_fp >= 0 and cost_fn >= 0):
+        raise ValueError("False-positive and false-negative costs must be finite and non-negative.")
     pos_mask = labels == positive_label
     neg_mask = ~pos_mask
     n_pos = pos_mask.sum()
     n_neg = neg_mask.sum()
+    if n_pos == 0 or n_neg == 0:
+        raise ValueError("Threshold selection requires both positive and negative cases.")
 
     uniq = np.unique(scores)[::-1]
     thresholds = np.concatenate(([np.inf], uniq))
