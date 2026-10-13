@@ -12,7 +12,7 @@ from enrichment import (
     FagansLrIntegrationEngine,
     ConfidenceIntervalsForAllMetricsEngine,
     RocCurveWithOptimalThresholdEngine,
-    TesttreatmentThresholdAnalysisEngine,
+    TesttreatmentThresholdAnalysisEngine as ThresholdAnalysisEngine,
     MultitestComparisonDashboardEngine,
     BayesianDiagnosticPerformanceEngine,
     DiagnosticoddsratiosensspecEnrichmentSuite,
