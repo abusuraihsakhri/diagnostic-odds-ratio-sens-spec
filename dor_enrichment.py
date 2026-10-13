@@ -254,7 +254,7 @@ def compute_all_metrics_with_ci(
 
     # Youden's J
     youden_j = sens + spec - 1.0
-    # Bootstrap-like CI for Youden (delta method approximation)
+    # Wald/delta-method approximation for Youden's J (not a bootstrap).
     se_j = math.sqrt(
         (sens * (1.0 - sens) / n_pos if n_pos > 0 else 0) +
         (spec * (1.0 - spec) / n_neg if n_neg > 0 else 0)
@@ -274,6 +274,11 @@ def compute_all_metrics_with_ci(
         f"ppv_{ci_pct}ci": ppv_ci,
         "npv": round(npv, 6) if npv is not None else None,
         f"npv_{ci_pct}ci": npv_ci,
+        # Represent infinity as a string for strict JSON compatibility.
+        "lr_positive": round(sens / (1 - spec), 6) if spec < 1
+            else ("Infinity" if sens > 0 else None),
+        "lr_negative": round((1 - sens) / spec, 6) if spec > 0
+            else ("Infinity" if sens < 1 else None),
         "diagnostic_odds_ratio": round(dor, 4),
         "dor_zero_cell_correction": min(tp, fp, fn, tn) == 0,
         f"dor_{ci_pct}ci": dor_ci,

@@ -83,3 +83,31 @@ def test_api_rejects_detectable_phi():
         "primary_metric": 1.0
     })
     assert response.status_code == 422
+
+
+def test_http_serves_browser_assets():
+    client = TestClient(app)
+    assert client.get("/").status_code == 200
+    assert "Diagnostic test performance" in client.get("/").text
+    assert client.get("/app.js").status_code == 200
+    assert client.get("/metrics.js").status_code == 200
+
+
+def test_likelihood_ratios_in_output():
+    r = calculate_diagnostic_metrics(tp=95, fp=10, fn=5, tn=90)
+    assert r["lr_positive"] == pytest.approx(9.5)
+    assert r["lr_negative"] == pytest.approx(0.055556, abs=1e-6)
+
+
+def test_batch_calculates_real_table(tmp_path):
+    from dor_youden import process_batch
+    import csv
+    source = tmp_path / "table.csv"
+    output = tmp_path / "report.csv"
+    source.write_text("tp,fp,fn,tn\n95,10,5,90\ninvalid,10,5,90\n", encoding="utf-8")
+    process_batch(str(source), str(output))
+    with output.open(encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert float(rows[0]["diagnostic_odds_ratio"]) == 171
+    assert rows[0]["error"] == ""
+    assert rows[1]["error"]

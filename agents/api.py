@@ -3,7 +3,7 @@ FastAPI REST API Server for Diagnostic Odds Ratio Sens Spec.
 """
 from typing import Dict, Any, List
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from pydantic import Field
 from dor_youden import calculate_diagnostic_metrics
@@ -32,11 +32,6 @@ class DiagnosticTableRequest(BaseModel):
     fn: int = Field(..., ge=0)
     tn: int = Field(..., ge=0)
     alpha: float = Field(default=0.05, gt=0, lt=1, allow_inf_nan=False)
-
-
-@app.get("/", include_in_schema=False)
-def index():
-    return FileResponse(Path(__file__).resolve().parent.parent / "web" / "index.html")
 
 
 @app.post("/api/diagnostic-metrics")
@@ -82,3 +77,8 @@ def api_chat(req: ChatRequest):
 @app.get("/api/audit/logs")
 def api_audit_logs():
     return {"audit_trail": AuditLogger.get_trail(), "verified": AuditLogger.verify_integrity()}
+
+
+# Register the browser files last, after the existing API routes.
+app.mount("/", StaticFiles(directory=Path(__file__).resolve().parent.parent / "web", html=True),
+          name="browser")
