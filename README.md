@@ -1,194 +1,112 @@
-# Diagnostic Odds Ratio Sens Spec
+# Diagnostic Test Performance Calculator
 
-> **Domain:** Clinical Decision Support & Biomedical Computing
-> **Reference Guidelines & Standards:** Standard Clinical Formulations & ISO/IEC Quality Frameworks
+### [Open the Live Application →](https://abusuraihsakhri.github.io/diagnostic-odds-ratio-sens-spec/)
 
-<div align="center">
+Calculate diagnostic test performance from a **2×2 reference-standard table**. The public application is a dependency-free static website; Python functions, a CLI, and an optional FastAPI service are also provided.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+## Browser calculator
 
-</div>
+Enter true positives (TP), false positives (FP), false negatives (FN), and true negatives (TN). All counts must be non-negative integers, and both reference-positive and reference-negative observations must be present.
 
----
+- **Sensitivity, specificity, PPV, NPV, and observed prevalence**, with Wilson-score 95% confidence intervals for the four accuracy proportions.
+- **Diagnostic odds ratio (DOR)** and log-normal 95% CI; adds 0.5 to each cell when any cell is zero, with the correction explicitly identified.
+- **Positive/negative likelihood ratios (LR+/LR−)** and **Youden's J**.
+- **Post-test probability** after positive and negative tests from a user-supplied pre-test probability.
+- **CSV export**, input validation, and responsive layout.
 
-## 📖 What It Does
+An estimate that is mathematically undefined is displayed as such; it is not silently interpreted as zero.
 
-Diagnostic Odds Ratio (DOR) & Youden Index Engine with enrichment features for clinical decision support.
+**Privacy:** The browser calculator performs all computations locally. It does not upload input counts or require an account, cookie, API key, analytics provider, or remote service. Do not enter identifiable patient data. Exported CSVs are generated and downloaded by the browser.
 
-### Core Features
+## Methods
 
-1. **DOR & Youden Index Calculation** - Sensitivity, Specificity, PPV, NPV, DOR, and Youden's J from a 2x2 table
-2. **Fagan's LR Integration** - Positive/Negative Likelihood Ratios with post-test probability
-3. **Confidence Intervals** - Wilson-score and Clopper-Pearson CIs for all metrics
-4. **ROC Curve Analysis** - Full ROC sweep, AUC, multiple cutpoint methods
-5. **Cost-Sensitive Threshold** - Find optimal threshold minimizing expected cost
+For the confusion matrix (TP, FP, FN, TN):
 
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+```text
+Sensitivity = TP / (TP + FN)
+Specificity = TN / (TN + FP)
+PPV         = TP / (TP + FP)
+NPV         = TN / (TN + FN)
+DOR         = (TP × TN) / (FP × FN)
+Youden J    = Sensitivity + Specificity − 1
+LR+         = Sensitivity / (1 − Specificity)
+LR−         = (1 − Sensitivity) / Specificity
+```
 
----
+PPV and NPV are sample-prevalence dependent. Post-test probabilities instead apply the likelihood ratios to the **specified pre-test probability**. The Youden J confidence interval in the Python enrichment module is an approximate delta-method interval; it is not a bootstrap interval. The DOR log-normal interval may be unreliable for sparse tables, and the zero-cell correction is a convention rather than an exact estimate.
 
-## ⚙️ Key Capabilities & Algorithmic Modules
+This software provides descriptive research calculations, **not clinical recommendations or a validated clinical decision rule**.
 
-### 🔬 Analytical Functions
+## Python installation and examples
 
-- **`calculate_metrics()`** - Core scoring algorithm with classification tiers
-- **`compute_likelihood_ratios()`** - Compute LR+ and LR- with interpretations
-- **`fagan_nomogram()`** - Compute post-test probabilities using Fagan's nomogram
-- **`compute_all_metrics_with_ci()`** - Full metrics with confidence intervals
-- **`compute_roc_curve()`** - ROC curve with optimal cutpoints
-- **`compute_cost_sensitive_cutpoint()`** - Cost-minimizing threshold
-
----
-
-## 💻 Installation
+Python 3.10–3.12 is tested.
 
 ```bash
-# Clone the repository
 git clone https://github.com/abusuraihsakhri/diagnostic-odds-ratio-sens-spec.git
 cd diagnostic-odds-ratio-sens-spec
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate   # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
----
+Calculate an individual 2×2 table:
 
-## 🚀 CLI Quickstart & Usage
-
-### 1. Single Case Evaluation
 ```bash
-python dor_youden.py single --v1 12.0 --v2 4.0 --v3 2.0
+python dor_youden.py table --tp 95 --fp 10 --fn 5 --tn 90
 ```
 
-### 2. Batch CSV Processing
+Process `example_2x2.csv` and save calculated metrics:
+
 ```bash
-python dor_youden.py batch -i sample.csv -o results.csv
+python dor_youden.py batch -i example_2x2.csv -o results.csv
 ```
 
-### 3. Interactive CLI with Full System
+The batch command recognizes the exact column names `tp,fp,fn,tn`. Invalid rows receive an `error` field. The historical `single --v1 --v2 --v3` mode and `sample.csv` remain available for compatibility but are a **generic weighted-score demonstration, not diagnostic statistics**.
+
+The `dor_enrichment.py` module additionally exposes `compute_all_metrics_with_ci()`, `compute_likelihood_ratios()`, `fagan_nomogram()`, `compute_roc_curve()`, and `compute_cost_sensitive_cutpoint()`; the confidence-interval helper supports Wilson and Clopper–Pearson methods (the latter uses SciPy).
+
+## Local application and API
+
+To run only the web interface, serve the `web` directory with any static file server:
+
 ```bash
-python cli.py audit --task-id TASK-001 --primary 28.5 --secondary 14.2
+python -m http.server 8080 --directory web
 ```
 
-### 4. Batch Processing via CLI
-```bash
-python cli.py batch -i sample.csv -o results.csv
-```
+Open [http://localhost:8080/](http://localhost:8080/).
 
-### 5. Launch REST API Server
+To run the Python REST service, including the same browser UI:
+
 ```bash
 python cli.py serve --host 127.0.0.1 --port 8000
 ```
 
-### 6. Verify Audit Trail
-```bash
-python cli.py verify-audit
-```
+Open `http://127.0.0.1:8000/`. The API offers `POST /api/diagnostic-metrics` with JSON `{"tp":95,"fp":10,"fn":5,"tn":90}`; `GET /health`, `GET /metrics`, and FastAPI's generated `GET /openapi.json` are also available. The `/metrics` endpoint returns JSON operational counts, **not Prometheus exposition format**.
 
----
+The separate `cli.py audit` and `/api/audit` workflows demonstrate **illustrative, unvalidated threshold rules**; they do not evaluate the diagnostic 2×2 table. The conversational adapter is a **mock**: external model providers are not implemented. Its in-memory HMAC audit ledger is ephemeral, and regex identifier screening is incomplete; neither is a compliance guarantee. Do not process PHI through this service.
 
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances, Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`)
-
-### Security Configuration
-
-Set the `AUDIT_SECRET_KEY` environment variable for persistent audit integrity across restarts:
+## Docker
 
 ```bash
-export AUDIT_SECRET_KEY="your-secure-random-key"
+docker build -t diagnostic-performance .
+docker run --rm -p 127.0.0.1:8000:8000 -e AUDIT_SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')" diagnostic-performance
 ```
 
----
+Alternatively set `AUDIT_SECRET_KEY` to a strong value in your environment and run `docker compose up --build`. The Compose file deliberately requires this variable and binds the server to localhost. Historical test keys should not be reused.
 
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+## Tests and deployment
 
 ```bash
-pytest -v
+python -m pytest -q
+node --check web/metrics.js
+node --check web/app.js
+node --test web/tests.test.cjs
 ```
 
-Execute high-throughput batch simulation benchmarks:
+GitHub Actions tests Python 3.10, 3.11 and 3.12, checks the browser scripts, and deploys `web/` to GitHub Pages from `master`. The deployment workflow verifies the live HTML and JavaScript files after publication. The browser JavaScript runs natively; **Pyodide/PyScript are not required**.
 
-```bash
-python simulator.py --tasks 1000 --concurrency 8
-```
+The static interface uses modern browser features such as `Number.isSafeInteger`, `Blob`, and `requestSubmit`; it is intended for current desktop and mobile browsers. Automated tests do not constitute cross-browser certification.
 
----
+## License
 
-## 🐳 Container Deployment
-
-```bash
-docker build -t diagnostic-odds-ratio-sens-spec .
-docker run -p 8000:8000 diagnostic-odds-ratio-sens-spec
-```
-
----
-
-## 📁 Project Structure
-
-```
-diagnostic-odds-ratio-sens-spec/
-├── agents/                 # Enterprise agent framework
-│   ├── api.py             # FastAPI REST server
-│   ├── base.py            # Security, PHI guard, audit trail
-│   ├── models.py          # Pydantic data models
-│   ├── supervisor.py      # Multi-agent orchestrator
-│   ├── workers.py         # Specialized domain workers
-│   ├── llm_factory.py     # LLM provider factory
-│   ├── learning.py        # Bayesian calibration engine
-│   ├── metrics.py         # Prometheus metrics exporter
-│   └── streamer.py        # WebSocket telemetry broadcaster
-├── tests/                 # Test suite
-├── web/                   # Operations console (HTML)
-├── cli.py                 # Command line interface
-├── dor_youden.py          # Core DOR & Youden calculations
-├── dor_enrichment.py      # Enrichment features (LR, CI, ROC)
-├── enrichment.py          # Additional enrichment engines
-├── simulator.py           # High-throughput simulation
-├── sample.csv             # Sample input data
-├── requirements.txt       # Python dependencies
-├── Dockerfile             # Container configuration
-└── docker-compose.yml     # Multi-container orchestration
-```
-
----
-
-## 📐 Mathematical Formulation
-
-### Diagnostic Odds Ratio (DOR)
-```
-DOR = (TP × TN) / (FP × FN)
-```
-
-### Youden's J
-```
-J = Sensitivity + Specificity - 1
-```
-
-### Likelihood Ratios
-```
-LR+ = Sensitivity / (1 - Specificity)
-LR- = (1 - Sensitivity) / Specificity
-```
-
-### Fagan's Nomogram (Post-Test Probability)
-```
-Pre-test Odds = Pre-test Probability / (1 - Pre-test Probability)
-Post-test Odds = Pre-test Odds × LR
-Post-test Probability = Post-test Odds / (1 + Post-test Odds)
-```
+[MIT](LICENSE).
